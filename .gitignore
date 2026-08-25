@@ -1,0 +1,18 @@
+# Secrets — never commit a filled-in environment file.
+.env
+.env.*
+!.env.example
+
+# Local build output
+/pocketclaw-telegram-setup
+/dist
+*.test
+*.out
+
+# Vercel
+.vercel
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store

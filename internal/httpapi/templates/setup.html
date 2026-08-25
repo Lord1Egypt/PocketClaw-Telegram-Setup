@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>PocketClaw Telegram Setup</title>
+<style>
+  :root {
+    --bg: #f7fafc; --panel: #ffffff; --ink: #0d1b2a; --muted: #5a6b7c;
+    --line: #dbe3ea; --accent: #00b8d9; --ok: #0f9d58; --warn: #d98600; --err: #d93025;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #08111f; --panel: #101c2e; --ink: #e8eef5; --muted: #93a4b8;
+      --line: #1e2f47; --accent: #22d3ee; --ok: #34d399; --warn: #fbbf24; --err: #f87171;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 2rem 1rem; background: var(--bg); color: var(--ink);
+    font: 15px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 720px; margin: 0 auto; }
+  header { text-align: center; margin-bottom: 2rem; }
+  h1 { font-size: 1.6rem; margin: 0 0 .25rem; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); margin: 0; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 1.25rem 1.5rem; margin-bottom: 1.25rem;
+  }
+  h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em;
+       color: var(--muted); margin: 0 0 1rem; font-weight: 600; }
+  .row { display: flex; align-items: flex-start; gap: 1rem; padding: .7rem 0;
+         border-bottom: 1px solid var(--line); }
+  .row:last-child { border-bottom: 0; }
+  .row .label { flex: 0 0 40%; color: var(--muted); }
+  .row .value { flex: 1; min-width: 0; word-break: break-word; }
+  .value code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .87em; }
+  .pill { display: inline-block; padding: .12rem .6rem; border-radius: 999px;
+          font-size: .78rem; font-weight: 600; border: 1px solid currentColor; }
+  .pill.ok { color: var(--ok); } .pill.err { color: var(--err); }
+  .pill.warn { color: var(--warn); } .pill.idle { color: var(--muted); }
+  .detail { display: block; color: var(--muted); font-size: .85rem; margin-top: .2rem; }
+  .actions { display: flex; flex-wrap: wrap; gap: .6rem; }
+  button {
+    font: inherit; font-weight: 600; cursor: pointer; padding: .55rem 1.1rem;
+    border-radius: 9px; border: 1px solid var(--line); background: var(--panel);
+    color: var(--ink);
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  button:disabled { opacity: .55; cursor: progress; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #04121a; }
+  .problems { border-color: var(--warn); }
+  .problems li { margin-bottom: .35rem; }
+  footer { text-align: center; color: var(--muted); font-size: .85rem; margin-top: 2rem; }
+  footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>PocketClaw Telegram Setup</h1>
+    <p class="sub">Manager service for PocketClaw's zero-copy/paste Telegram onboarding.</p>
+  </header>
+
+  {{if .Problems}}
+  <section class="panel problems">
+    <h2>Configuration</h2>
+    <ul>{{range .Problems}}<li>{{.}}</li>{{end}}</ul>
+  </section>
+  {{end}}
+
+  <section class="panel">
+    <h2>Status</h2>
+    <div class="row">
+      <span class="label">Manager Bot</span>
+      <span class="value"><code>@{{if .ManagerUsername}}{{.ManagerUsername}}{{else}}not configured{{end}}</code></span>
+    </div>
+    <div class="row">
+      <span class="label">Manager Authentication</span>
+      <span class="value"><span id="s-telegram" class="pill idle">Not checked</span>
+        <span class="detail" id="d-telegram"></span></span>
+    </div>
+    <div class="row">
+      <span class="label">Bot Management Mode</span>
+      <span class="value"><span id="s-manage" class="pill idle">Not checked</span>
+        <span class="detail" id="d-manage"></span></span>
+    </div>
+    <div class="row">
+      <span class="label">Telegram Webhook</span>
+      <span class="value"><span id="s-webhook" class="pill idle">Not registered</span>
+        <span class="detail" id="d-webhook"></span></span>
+    </div>
+    <div class="row">
+      <span class="label">Pairing Storage</span>
+      <span class="value"><span id="s-storage" class="pill idle">Not checked</span>
+        <span class="detail" id="d-storage"></span></span>
+    </div>
+    <div class="row">
+      <span class="label">Service URL</span>
+      <span class="value"><code id="v-url">{{.ServiceURL}}</code></span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Actions</h2>
+    <div class="actions">
+      <button class="primary" data-action="register-webhook" data-target="webhook">Register Webhook</button>
+      <button data-action="verify-telegram" data-target="telegram">Verify Telegram</button>
+      <button data-action="check-storage" data-target="storage">Check Storage</button>
+      <button data-action="test-pairing" data-target="pairing">Create Test Pairing</button>
+    </div>
+    <div class="row" style="border-bottom:0">
+      <span class="label">Last test pairing</span>
+      <span class="value"><span id="s-pairing" class="pill idle">Not run</span>
+        <span class="detail" id="d-pairing"></span></span>
+    </div>
+  </section>
+
+  <footer>
+    No secret is ever sent to this page. Every action runs server-side.<br>
+    <a href="/privacy">Privacy</a>
+  </footer>
+</main>
+
+<script>
+  // This page holds no credentials. Each button asks the server to perform an
+  // action; the manager bot token stays in the server environment.
+  function paint(target, ok, message, detail) {
+    var pill = document.getElementById('s-' + target);
+    var note = document.getElementById('d-' + target);
+    pill.className = 'pill ' + (ok ? 'ok' : 'err');
+    pill.textContent = message;
+    note.textContent = detail || '';
+  }
+
+  async function run(button) {
+    var action = button.dataset.action;
+    var target = button.dataset.target;
+    button.disabled = true;
+    try {
+      var response = await fetch('/api/' + action, { method: 'POST' });
+      var result = await response.json();
+      paint(target, result.ok, result.ok ? (result.message || 'OK') : (result.message || 'Failed'), result.detail);
+      if (action === 'verify-telegram') {
+        paint('manage', result.ok, result.ok ? 'Enabled' : 'Unknown',
+              result.ok ? 'Telegram reports can_manage_bots = true' : 'Verify the manager first');
+      }
+    } catch (error) {
+      paint(target, false, 'Request failed', String(error));
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  document.querySelectorAll('button[data-action]').forEach(function (button) {
+    button.addEventListener('click', function () { run(button); });
+  });
+
+  fetch('/api/status').then(function (r) { return r.json(); }).then(function (status) {
+    if (status.service_url) { document.getElementById('v-url').textContent = status.service_url; }
+    if (status.webhook_url) { document.getElementById('d-webhook').textContent = status.webhook_url; }
+    document.getElementById('d-storage').textContent = status.storage || '';
+  }).catch(function () {});
+</script>
+</body>
+</html>

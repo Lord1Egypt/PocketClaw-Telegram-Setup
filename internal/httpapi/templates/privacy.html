@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy — PocketClaw Telegram Setup</title>
+<style>
+  :root { --bg:#f7fafc; --panel:#fff; --ink:#0d1b2a; --muted:#5a6b7c; --line:#dbe3ea; --accent:#00b8d9; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#08111f; --panel:#101c2e; --ink:#e8eef5; --muted:#93a4b8; --line:#1e2f47; --accent:#22d3ee; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:2rem 1rem; background:var(--bg); color:var(--ink);
+         font:15px/1.7 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width:720px; margin:0 auto; }
+  h1 { font-size:1.6rem; margin:0 0 .5rem; }
+  h2 { font-size:1.05rem; margin:2rem 0 .6rem; }
+  .sub { color:var(--muted); margin:0 0 2rem; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:1.25rem 1.5rem; }
+  ul { padding-left:1.2rem; } li { margin-bottom:.35rem; }
+  code { font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:.9em; }
+  a { color:var(--accent); }
+  footer { text-align:center; color:var(--muted); font-size:.85rem; margin-top:2rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Privacy</h1>
+  <p class="sub">PocketClaw Telegram Setup — the manager service behind PocketClaw's Telegram onboarding.</p>
+
+  <div class="panel">
+    <p>
+      This service exists to connect one PocketClaw installation to one Telegram
+      bot that you create and own. It is deliberately narrow: it handles a
+      pairing, and nothing else.
+    </p>
+
+    <h2>What it temporarily processes</h2>
+    <ul>
+      <li>A randomly generated pairing identifier.</li>
+      <li>A keyed digest of the pairing's poll token. The token itself is
+          returned once to your PocketClaw app and is never stored.</li>
+      <li>The Telegram user ID of the person who creates the bot. It is used to
+          restrict the new bot to its owner.</li>
+      <li>The generated child bot identity: its suggested name, username, and,
+          once created, its Telegram bot ID.</li>
+      <li>The child bot token, held only between the moment Telegram issues it
+          and the moment it is delivered to your PocketClaw app.</li>
+      <li>The pairing state: <code>pending</code>, <code>created</code>,
+          <code>ready</code>, or <code>failed</code>.</li>
+    </ul>
+
+    <h2>What it does not process</h2>
+    <ul>
+      <li>AI conversations, prompts, or responses.</li>
+      <li>AI provider API keys.</li>
+      <li>PocketClaw workspace files.</li>
+      <li>Message content from your bot. This service is not your bot; it only
+          creates it.</li>
+    </ul>
+
+    <h2>Retention</h2>
+    <p>
+      Pairing records are stored in a short-lived key/value store with an
+      expiry set when the pairing is created — ten minutes by default. When a
+      pairing completes, the child bot token is removed at the moment it is
+      delivered, and the pairing record is deleted immediately afterwards.
+      Pairings that are never completed expire on their own.
+    </p>
+    <p>
+      Records are not archived, exported, or used for analytics. There is no
+      user account and no long-term profile.
+    </p>
+
+    <h2>Logs</h2>
+    <p>
+      Operational logs record pairing identifiers, bot usernames, and Telegram
+      bot IDs so that failures can be diagnosed. They never record bot tokens,
+      poll tokens, or the manager bot's credentials, which are redacted before
+      any error is logged. Logs are kept by the hosting platform under its own
+      retention policy.
+    </p>
+
+    <h2>Operator note</h2>
+    <p>
+      This software is open source and can be deployed by anyone. Each
+      deployment is operated independently by whoever deployed it, and this
+      page describes what the software does — not any promise made by a
+      particular operator.
+    </p>
+  </div>
+
+  <footer><a href="/">Back to setup</a></footer>
+</main>
+</body>
+</html>
