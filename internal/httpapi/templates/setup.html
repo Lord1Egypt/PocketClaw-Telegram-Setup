@@ -100,7 +100,7 @@
     <div class="row" id="storage-help" hidden>
       <span class="label"></span>
       <span class="value">
-        <strong>Connect a Redis database to finish setup.</strong>
+        <strong>No Redis database is connected yet.</strong>
         <span class="detail">
           Vercel project &rarr; Storage &rarr; Marketplace &rarr; Upstash for Redis
           &rarr; create or select a database &rarr; connect it to this project
@@ -145,6 +145,12 @@
     pill.className = 'pill ' + (ok ? 'ok' : 'err');
     pill.textContent = message;
     note.textContent = detail || '';
+    // The storage row carries a "connect a database" block. It must follow the
+    // live result, or a page opened before the database was connected keeps
+    // telling the operator to do something they have already done.
+    if (target === 'storage') {
+      document.getElementById('storage-help').hidden = ok;
+    }
   }
 
   async function run(button) {
@@ -176,12 +182,15 @@
     document.getElementById('d-storage').textContent = status.storage || '';
     // Storage state is known from configuration alone, so say so immediately
     // rather than making the operator press a button to learn it.
-    if (!status.storage_shared) {
-      var pill = document.getElementById('s-storage');
+    var pill = document.getElementById('s-storage');
+    if (status.storage_shared) {
+      pill.className = 'pill ok';
+      pill.textContent = 'Configured';
+    } else {
       pill.className = 'pill err';
       pill.textContent = 'NOT CONFIGURED';
-      document.getElementById('storage-help').hidden = false;
     }
+    document.getElementById('storage-help').hidden = !!status.storage_shared;
   }).catch(function () {});
 </script>
 </body>

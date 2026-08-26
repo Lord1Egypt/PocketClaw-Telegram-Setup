@@ -604,8 +604,11 @@ func TestWithoutStorageTheSetupPageSaysSo(t *testing.T) {
 	if !strings.Contains(page, "NOT CONFIGURED") {
 		t.Fatalf("the setup page does not report unconfigured storage")
 	}
-	if !strings.Contains(page, "Connect a Redis database") {
-		t.Fatalf("the setup page does not tell the operator what to do")
+	if !strings.Contains(page, "No Redis database is connected yet") {
+		t.Fatalf("the setup page does not tell the operator what is missing")
+	}
+	if !strings.Contains(page, "Marketplace") || !strings.Contains(page, "Redeploy") {
+		t.Fatalf("the setup page does not tell the operator what to do about it")
 	}
 	// storage_shared drives the pill; without it the page cannot report state
 	// until a button is pressed.
@@ -627,4 +630,45 @@ func TestWithoutStorageTheOtherChecksStillWork(t *testing.T) {
 	if !strings.Contains(string(body), `"ok":true`) {
 		t.Fatalf("register-webhook needs storage, which it should not: %s", body)
 	}
+}
+
+// The "no database connected" block is hidden or shown from JavaScript, so the
+// assertions here are on the wiring that drives it: the flag it reads, and the
+// fact that both the initial render and every storage check set it.
+func TestStorageHelpFollowsTheLiveState(t *testing.T) {
+	configured := newHarness(t)
+	_, body := configured.do(t, http.MethodGet, "/api/status", "", nil, nil)
+	if !strings.Contains(string(body), `"storage_shared":true`) {
+		t.Fatalf("a configured deployment does not report storage_shared: %s", body)
+	}
+
+	missing := newUnconfiguredHarness(t)
+	_, body = missing.do(t, http.MethodGet, "/api/status", "", nil, nil)
+	if !strings.Contains(string(body), `"storage_shared":false`) {
+		t.Fatalf("an unconfigured deployment does not report storage_shared: %s", body)
+	}
+
+	// Both code paths that touch the pill must also touch the help block, or a
+	// page opened before the database was connected keeps telling the operator
+	// to connect one.
+	page := mustReadSetupTemplate(t)
+	if strings.Count(page, "storage-help") < 3 {
+		t.Fatalf("storage-help is referenced %d times; it needs an element, an "+
+			"initial-render update, and a per-check update", strings.Count(page, "storage-help"))
+	}
+	if !strings.Contains(page, "document.getElementById('storage-help').hidden = ok;") {
+		t.Fatal("a successful storage check does not hide the help block")
+	}
+	if !strings.Contains(page, "document.getElementById('storage-help').hidden = !!status.storage_shared;") {
+		t.Fatal("the initial render does not set the help block from storage_shared")
+	}
+}
+
+func mustReadSetupTemplate(t *testing.T) string {
+	t.Helper()
+	raw, err := templateFS.ReadFile("templates/setup.html")
+	if err != nil {
+		t.Fatalf("read setup template: %v", err)
+	}
+	return string(raw)
 }
