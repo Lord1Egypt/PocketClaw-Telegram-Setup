@@ -54,13 +54,40 @@ func recordKey(id string) string  { return "pairing:" + id }
 func usernameKey(u string) string { return "username:" + NormalizeUsername(u) }
 func tokenKey(id string) string   { return "token:" + id }
 
+// Ping verifies the backend is reachable AND writable.
+//
+// A bare PING is not enough. Vercel's Redis integration injects both
+// KV_REST_API_TOKEN and KV_REST_API_READ_ONLY_TOKEN, whose names differ by one
+// word, and a read-only token answers PING perfectly well. A reachability-only
+// check would therefore report success and every pairing would then fail at
+// its first write. So this writes, reads back, and deletes a scratch key.
 func (s *RedisStore) Ping(ctx context.Context) error {
-	var out string
-	if err := s.command(ctx, &out, "PING"); err != nil {
+	var pong string
+	if err := s.command(ctx, &pong, "PING"); err != nil {
 		return err
 	}
-	if !strings.EqualFold(out, "PONG") {
-		return fmt.Errorf("unexpected PING reply %q", out)
+	if !strings.EqualFold(pong, "PONG") {
+		return fmt.Errorf("unexpected PING reply %q", pong)
+	}
+
+	probe, err := randomHex(8)
+	if err != nil {
+		return err
+	}
+	key := "healthcheck:" + probe
+	// A short TTL means an interrupted check cannot leave anything behind.
+	if err := s.command(ctx, nil, "SET", key, probe, "EX", "60"); err != nil {
+		return fmt.Errorf("%w: %s", ErrStorageNotWritable, err)
+	}
+
+	var readBack string
+	if err := s.command(ctx, &readBack, "GET", key); err != nil {
+		return err
+	}
+	_ = s.command(ctx, nil, "DEL", key)
+
+	if readBack != probe {
+		return fmt.Errorf("%w: wrote a probe key but read back %q", ErrStorageNotWritable, readBack)
 	}
 	return nil
 }

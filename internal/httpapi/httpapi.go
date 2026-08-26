@@ -315,6 +315,17 @@ func (s *Server) checkStorage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.store.Ping(ctx); err != nil {
+		if errors.Is(err, pairing.ErrStorageNotWritable) {
+			// By far the likeliest cause, because the two token names differ
+			// by one word and sit next to each other in the dashboard.
+			writeJSON(w, http.StatusOK, checkResult{
+				Message: "Reachable, but writes are refused",
+				Detail: "This usually means a read-only credential. Vercel's Redis integration " +
+					"injects both KV_REST_API_TOKEN and KV_REST_API_READ_ONLY_TOKEN — make sure " +
+					"the read-write one is in use, then Redeploy.",
+			})
+			return
+		}
 		writeJSON(w, http.StatusOK, checkResult{Message: err.Error(), Detail: s.store.Describe()})
 		return
 	}
@@ -325,7 +336,7 @@ func (s *Server) checkStorage(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	writeJSON(w, http.StatusOK, checkResult{OK: true, Message: "Storage reachable", Detail: s.store.Describe()})
+	writeJSON(w, http.StatusOK, checkResult{OK: true, Message: "Storage reachable and writable", Detail: s.store.Describe()})
 }
 
 // testPairing exercises the real create path end to end, then deletes the

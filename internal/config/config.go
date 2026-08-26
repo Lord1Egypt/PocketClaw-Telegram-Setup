@@ -56,11 +56,14 @@ func Load() (Config, []string) {
 		PairingTTL:         10 * time.Minute,
 	}
 
-	// UPSTASH_* first: those are what the current Marketplace integration
-	// injects. KV_REST_API_* are the legacy Vercel KV names — Vercel KV was
-	// retired in December 2024 and its stores were migrated to Upstash, so a
-	// long-lived project may still carry them. REDIS_REST_* is the generic
-	// escape hatch for any other Redis REST endpoint.
+	// Both name sets are current, and which one appears depends on how the
+	// database was attached: connecting a Redis store from a Vercel project's
+	// Storage tab injects KV_REST_API_*, while the Upstash integration
+	// injects UPSTASH_REDIS_REST_*. REDIS_REST_* is the generic escape hatch.
+	//
+	// Note the read-write token is wanted here. A Vercel Redis store also
+	// injects KV_REST_API_READ_ONLY_TOKEN, which answers PING but refuses
+	// writes; RedisStore.Ping performs a write round-trip to catch that.
 	cfg.RedisURL = firstEnv("UPSTASH_REDIS_REST_URL", "KV_REST_API_URL", "REDIS_REST_URL")
 	cfg.RedisToken = firstEnv("UPSTASH_REDIS_REST_TOKEN", "KV_REST_API_TOKEN", "REDIS_REST_TOKEN")
 
@@ -98,8 +101,9 @@ func Load() (Config, []string) {
 				"Pairing storage is NOT CONFIGURED. Connect a Redis database: "+
 					"Vercel project → Storage → Marketplace → Upstash for Redis → connect it to "+
 					"this project, then Redeploy. The integration injects "+
-					"UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN "+
-					"(KV_REST_API_URL and KV_REST_API_TOKEN are also accepted). "+
+					"KV_REST_API_URL and KV_REST_API_TOKEN, or "+
+					"UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN. Use the "+
+					"read-write token, not KV_REST_API_READ_ONLY_TOKEN. "+
 					"Pairing requests fail until this is done.")
 		}
 	}

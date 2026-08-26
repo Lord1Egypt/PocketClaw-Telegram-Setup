@@ -157,26 +157,28 @@ refuses anything under 16 characters.
 
 ### Injected by the Redis integration
 
-Do **not** set these by hand after a Marketplace install — the integration
-manages them, and a manually-entered copy will go stale when credentials
-rotate.
+Do **not** set these by hand after connecting a database — the integration
+manages them, and a manually-entered copy goes stale when credentials rotate.
 
-| Variable | Provided by |
+Which names you get depends on how the database was attached. Both work; you
+need one complete pair and nothing more.
+
+| Names | Seen when |
 | --- | --- |
-| `UPSTASH_REDIS_REST_URL` | Upstash for Redis (Marketplace) |
-| `UPSTASH_REDIS_REST_TOKEN` | Upstash for Redis (Marketplace) |
+| `KV_REST_API_URL` + `KV_REST_API_TOKEN` | connecting a Redis store from the Vercel project's **Storage** tab |
+| `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` | connecting through the **Upstash integration** directly |
+| `REDIS_REST_URL` + `REDIS_REST_TOKEN` | generic, for any other Redis REST endpoint |
 
-The service also accepts these older names, in this order of preference:
+> **Use the read-write token.** A Vercel Redis store also injects
+> `KV_REST_API_READ_ONLY_TOKEN`. The names differ by one word and sit next to
+> each other in the dashboard, and a read-only token answers `PING` happily —
+> so it looks healthy and then fails on the first pairing. **Check Storage**
+> performs a real write round-trip specifically to catch this, and says so.
 
-| Alias | Origin |
-| --- | --- |
-| `KV_REST_API_URL` / `KV_REST_API_TOKEN` | legacy Vercel KV, retired in December 2024; existing stores were migrated to Upstash and may still carry these |
-| `REDIS_REST_URL` / `REDIS_REST_TOKEN` | generic, for a self-hosted or other Redis REST endpoint |
-
-Whichever pair is present is used; you never need more than one. Note that a
-`REDIS_URL` connection string is **not** enough on its own — this service
-speaks the HTTP REST protocol, not the Redis wire protocol, because a
-serverless function has nowhere to keep a connection pool.
+You will also see `REDIS_URL` and `KV_URL`. Those are Redis wire-protocol
+connection strings and this service does not use them — it speaks the HTTP
+REST protocol, because a serverless function has nowhere to keep a connection
+pool. Seeing them is normal; leave them alone.
 
 ### Optional
 

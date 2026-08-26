@@ -57,6 +57,9 @@ var (
 	ErrNotReady = errors.New("pairing is not ready")
 	// ErrConflict is returned when an identifier is already taken.
 	ErrConflict = errors.New("identifier already in use")
+	// ErrStorageNotWritable is returned when the backend answers reads but
+	// refuses writes, which is what a read-only credential looks like.
+	ErrStorageNotWritable = errors.New("pairing storage is reachable but not writable")
 )
 
 // Record is one pairing session as it is stored.
