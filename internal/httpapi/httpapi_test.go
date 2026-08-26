@@ -533,3 +533,98 @@ func TestUnknownPathIsNotFound(t *testing.T) {
 		t.Fatalf("unknown path returned %d, want 404", resp.StatusCode)
 	}
 }
+
+// newUnconfiguredHarness models the state right after the one-click deploy,
+// before a Redis database has been connected.
+func newUnconfiguredHarness(t *testing.T) *harness {
+	t.Helper()
+	bot := &fakeBot{canManageBots: true, username: "PocketClawSetupBot"}
+	hasher, err := pairing.NewHasher("pairing-secret-long-enough")
+	if err != nil {
+		t.Fatalf("NewHasher: %v", err)
+	}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	cfg := config.Config{
+		ManagerBotToken:    "123456:MANAGER-TOKEN",
+		ManagerBotUsername: "PocketClawSetupBot",
+		WebhookSecret:      testWebhookSecret,
+		PairingSecret:      "pairing-secret-long-enough",
+		PairingTTL:         10 * time.Minute,
+	}
+	store := pairing.NewUnconfiguredStore()
+	svc := onboarding.New(store, hasher, bot, "PocketClawSetupBot", cfg.PairingTTL, log)
+	api := New(cfg, []string{"Pairing storage is NOT CONFIGURED."}, svc, store, bot, log)
+	server := httptest.NewServer(api.Handler())
+	t.Cleanup(server.Close)
+	return &harness{server: server, bot: bot, svc: svc}
+}
+
+func TestWithoutStorageCreatePairingFailsLoudly(t *testing.T) {
+	h := newUnconfiguredHarness(t)
+	resp, body := h.do(t, http.MethodPost, "/telegram/pairings", "", nil, nil)
+	// A pairing created against no shared storage could never complete, since
+	// the Telegram webhook lands in a different function instance. Refuse it
+	// rather than hand the app a QR code that will silently time out.
+	if resp.StatusCode != http.StatusServiceUnavailable {
+		t.Fatalf("create returned %d, want 503", resp.StatusCode)
+	}
+	if !strings.Contains(string(body), "storage_not_configured") {
+		t.Fatalf("the error does not name the cause: %s", body)
+	}
+}
+
+func TestWithoutStorageCheckReportsNotConfiguredWithInstructions(t *testing.T) {
+	h := newUnconfiguredHarness(t)
+	_, body := h.do(t, http.MethodPost, "/api/check-storage", "", nil, nil)
+	var result struct {
+		OK      bool   `json:"ok"`
+		Message string `json:"message"`
+		Detail  string `json:"detail"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if result.OK {
+		t.Fatal("check-storage reported success with no storage connected")
+	}
+	if result.Message != "NOT CONFIGURED" {
+		t.Fatalf("message = %q, want %q", result.Message, "NOT CONFIGURED")
+	}
+	for _, expected := range []string{"Storage", "Marketplace", "Upstash", "Redeploy"} {
+		if !strings.Contains(result.Detail, expected) {
+			t.Fatalf("the instructions do not mention %q: %q", expected, result.Detail)
+		}
+	}
+}
+
+func TestWithoutStorageTheSetupPageSaysSo(t *testing.T) {
+	h := newUnconfiguredHarness(t)
+	_, body := h.do(t, http.MethodGet, "/", "", nil, nil)
+	page := string(body)
+	if !strings.Contains(page, "NOT CONFIGURED") {
+		t.Fatalf("the setup page does not report unconfigured storage")
+	}
+	if !strings.Contains(page, "Connect a Redis database") {
+		t.Fatalf("the setup page does not tell the operator what to do")
+	}
+	// storage_shared drives the pill; without it the page cannot report state
+	// until a button is pressed.
+	_, status := h.do(t, http.MethodGet, "/api/status", "", nil, nil)
+	if !strings.Contains(string(status), `"storage_shared":false`) {
+		t.Fatalf("status does not expose storage_shared: %s", status)
+	}
+}
+
+func TestWithoutStorageTheOtherChecksStillWork(t *testing.T) {
+	h := newUnconfiguredHarness(t)
+	// Verifying Telegram and registering the webhook must not depend on
+	// storage; an operator will do those before connecting a database.
+	_, body := h.do(t, http.MethodPost, "/api/verify-telegram", "", nil, nil)
+	if !strings.Contains(string(body), `"ok":true`) {
+		t.Fatalf("verify-telegram needs storage, which it should not: %s", body)
+	}
+	_, body = h.do(t, http.MethodPost, "/api/register-webhook", "", nil, nil)
+	if !strings.Contains(string(body), `"ok":true`) {
+		t.Fatalf("register-webhook needs storage, which it should not: %s", body)
+	}
+}

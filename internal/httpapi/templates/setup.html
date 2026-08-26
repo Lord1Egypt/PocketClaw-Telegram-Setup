@@ -97,6 +97,18 @@
       <span class="value"><span id="s-storage" class="pill idle">Not checked</span>
         <span class="detail" id="d-storage"></span></span>
     </div>
+    <div class="row" id="storage-help" hidden>
+      <span class="label"></span>
+      <span class="value">
+        <strong>Connect a Redis database to finish setup.</strong>
+        <span class="detail">
+          Vercel project &rarr; Storage &rarr; Marketplace &rarr; Upstash for Redis
+          &rarr; create or select a database &rarr; connect it to this project
+          &rarr; Redeploy. The integration injects the credentials for you;
+          nothing to copy by hand.
+        </span>
+      </span>
+    </div>
     <div class="row">
       <span class="label">Service URL</span>
       <span class="value"><code id="v-url">{{.ServiceURL}}</code></span>
@@ -162,6 +174,14 @@
     if (status.service_url) { document.getElementById('v-url').textContent = status.service_url; }
     if (status.webhook_url) { document.getElementById('d-webhook').textContent = status.webhook_url; }
     document.getElementById('d-storage').textContent = status.storage || '';
+    // Storage state is known from configuration alone, so say so immediately
+    // rather than making the operator press a button to learn it.
+    if (!status.storage_shared) {
+      var pill = document.getElementById('s-storage');
+      pill.className = 'pill err';
+      pill.textContent = 'NOT CONFIGURED';
+      document.getElementById('storage-help').hidden = false;
+    }
   }).catch(function () {});
 </script>
 </body>

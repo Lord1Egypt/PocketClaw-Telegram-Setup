@@ -56,10 +56,13 @@ func Load() (Config, []string) {
 		PairingTTL:         10 * time.Minute,
 	}
 
-	// Accept both the Vercel KV names and the Upstash names, so an integration
-	// added through either route works without renaming variables by hand.
-	cfg.RedisURL = firstEnv("KV_REST_API_URL", "UPSTASH_REDIS_REST_URL", "REDIS_REST_URL")
-	cfg.RedisToken = firstEnv("KV_REST_API_TOKEN", "UPSTASH_REDIS_REST_TOKEN", "REDIS_REST_TOKEN")
+	// UPSTASH_* first: those are what the current Marketplace integration
+	// injects. KV_REST_API_* are the legacy Vercel KV names — Vercel KV was
+	// retired in December 2024 and its stores were migrated to Upstash, so a
+	// long-lived project may still carry them. REDIS_REST_* is the generic
+	// escape hatch for any other Redis REST endpoint.
+	cfg.RedisURL = firstEnv("UPSTASH_REDIS_REST_URL", "KV_REST_API_URL", "REDIS_REST_URL")
+	cfg.RedisToken = firstEnv("UPSTASH_REDIS_REST_TOKEN", "KV_REST_API_TOKEN", "REDIS_REST_TOKEN")
 
 	cfg.AllowMemoryStore = env("ALLOW_MEMORY_STORE") == "true"
 	cfg.PublicBaseURL = strings.TrimSuffix(env("PUBLIC_BASE_URL"), "/")
@@ -92,8 +95,12 @@ func Load() (Config, []string) {
 					"and cannot work across serverless instances")
 		} else {
 			problems = append(problems,
-				"shared storage is not configured: set KV_REST_API_URL and KV_REST_API_TOKEN "+
-					"(or the UPSTASH_REDIS_REST_* equivalents)")
+				"Pairing storage is NOT CONFIGURED. Connect a Redis database: "+
+					"Vercel project → Storage → Marketplace → Upstash for Redis → connect it to "+
+					"this project, then redeploy. The integration injects "+
+					"UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN "+
+					"(KV_REST_API_URL and KV_REST_API_TOKEN are also accepted). "+
+					"Pairing requests fail until this is done.")
 		}
 	}
 

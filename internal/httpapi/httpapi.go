@@ -110,6 +110,13 @@ type errorResponse struct {
 
 func (s *Server) createPairing(w http.ResponseWriter, r *http.Request) {
 	rec, pollToken, err := s.service.CreatePairing(r.Context())
+	if errors.Is(err, pairing.ErrStorageNotConfigured) {
+		// Distinct from a generic outage: this deployment is incomplete, and
+		// the operator needs to know that rather than see a retryable error.
+		s.log.Error("refusing to create a pairing: no storage is connected")
+		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "storage_not_configured"})
+		return
+	}
 	if err != nil {
 		s.log.Error("could not create a pairing", "error", err)
 		writeJSON(w, http.StatusServiceUnavailable, errorResponse{Error: "pairing_unavailable"})
@@ -299,14 +306,22 @@ func (s *Server) checkStorage(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
+	if errors.Is(s.store.Ping(ctx), pairing.ErrStorageNotConfigured) {
+		writeJSON(w, http.StatusOK, checkResult{
+			Message: "NOT CONFIGURED",
+			Detail: "Connect a Redis database: Vercel project → Storage → Marketplace → " +
+				"Upstash for Redis → connect it to this project, then Redeploy.",
+		})
+		return
+	}
 	if err := s.store.Ping(ctx); err != nil {
 		writeJSON(w, http.StatusOK, checkResult{Message: err.Error(), Detail: s.store.Describe()})
 		return
 	}
 	if !s.cfg.StorageConfigured() {
 		writeJSON(w, http.StatusOK, checkResult{
-			Message: "Using the in-memory store, which cannot work across serverless instances",
-			Detail:  s.store.Describe(),
+			Message: "In-memory (development only)",
+			Detail:  "This cannot work across serverless instances. Connect a Redis database before using this deployment.",
 		})
 		return
 	}

@@ -32,11 +32,14 @@ func Build() (http.Handler, config.Config, []string) {
 	switch {
 	case cfg.StorageConfigured():
 		store = pairing.NewRedisStore(cfg.RedisURL, cfg.RedisToken, nil)
-	default:
-		// Process-local, and therefore wrong in production. config.Load has
-		// already added a problem line saying so; refusing to start instead
-		// would leave the operator with no page to read it on.
+	case cfg.AllowMemoryStore:
+		// Local development only, and opted into explicitly.
 		store = pairing.NewMemoryStore()
+	default:
+		// Fail closed. A silent in-memory fallback would make a storage-less
+		// deployment look healthy right up to the point where a pairing never
+		// completes; see pairing.UnconfiguredStore.
+		store = pairing.NewUnconfiguredStore()
 	}
 
 	// A missing PAIRING_SECRET is already reported as a problem. Use a

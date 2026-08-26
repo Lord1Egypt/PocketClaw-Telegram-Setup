@@ -4,7 +4,7 @@ The manager service behind PocketClaw's Telegram onboarding. It turns
 "create a bot in BotFather, copy the token, paste it into the app" into
 "tap Open Telegram, confirm, done".
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FLord1Egypt%2FPocketClaw-Telegram-Setup&env=TELEGRAM_MANAGER_BOT_TOKEN%2CTELEGRAM_MANAGER_BOT_USERNAME%2CTELEGRAM_WEBHOOK_SECRET%2CPAIRING_SECRET%2CKV_REST_API_URL%2CKV_REST_API_TOKEN&envDescription=Manager%20bot%20token%20and%20username%20from%20BotFather%2C%20two%20long%20random%20strings%20you%20invent%2C%20and%20the%20REST%20URL%20and%20token%20for%20a%20Redis-compatible%20key%2Fvalue%20store.&envLink=https%3A%2F%2Fgithub.com%2FLord1Egypt%2FPocketClaw-Telegram-Setup%23environment-variables&project-name=pocketclaw-telegram-setup&repository-name=pocketclaw-telegram-setup)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FLord1Egypt%2FPocketClaw-Telegram-Setup&env=TELEGRAM_MANAGER_BOT_TOKEN%2CTELEGRAM_MANAGER_BOT_USERNAME%2CTELEGRAM_WEBHOOK_SECRET%2CPAIRING_SECRET&envDescription=Your%20manager%20bot%27s%20token%20and%20%40username%20from%20BotFather%2C%20plus%20two%20long%20random%20strings%20you%20invent.%20Redis%20is%20connected%20after%20this%20deploy%2C%20from%20the%20project%27s%20Storage%20tab.&envLink=https%3A%2F%2Fgithub.com%2FLord1Egypt%2FPocketClaw-Telegram-Setup%23environment-variables&project-name=pocketclaw-telegram-setup&repository-name=pocketclaw-telegram-setup)
 
 ---
 
@@ -55,20 +55,54 @@ your confirmation.
 
 ## Deploy to Vercel
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FLord1Egypt%2FPocketClaw-Telegram-Setup&env=TELEGRAM_MANAGER_BOT_TOKEN%2CTELEGRAM_MANAGER_BOT_USERNAME%2CTELEGRAM_WEBHOOK_SECRET%2CPAIRING_SECRET%2CKV_REST_API_URL%2CKV_REST_API_TOKEN&envDescription=Manager%20bot%20token%20and%20username%20from%20BotFather%2C%20two%20long%20random%20strings%20you%20invent%2C%20and%20the%20REST%20URL%20and%20token%20for%20a%20Redis-compatible%20key%2Fvalue%20store.&envLink=https%3A%2F%2Fgithub.com%2FLord1Egypt%2FPocketClaw-Telegram-Setup%23environment-variables&project-name=pocketclaw-telegram-setup&repository-name=pocketclaw-telegram-setup)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FLord1Egypt%2FPocketClaw-Telegram-Setup&env=TELEGRAM_MANAGER_BOT_TOKEN%2CTELEGRAM_MANAGER_BOT_USERNAME%2CTELEGRAM_WEBHOOK_SECRET%2CPAIRING_SECRET&envDescription=Your%20manager%20bot%27s%20token%20and%20%40username%20from%20BotFather%2C%20plus%20two%20long%20random%20strings%20you%20invent.%20Redis%20is%20connected%20after%20this%20deploy%2C%20from%20the%20project%27s%20Storage%20tab.&envLink=https%3A%2F%2Fgithub.com%2FLord1Egypt%2FPocketClaw-Telegram-Setup%23environment-variables&project-name=pocketclaw-telegram-setup&repository-name=pocketclaw-telegram-setup)
 
-1. **Click the button.** Vercel forks this repository into your account and
-   asks for the environment variables below.
-2. **Add a Redis store.** In your new project: *Storage → Create Database →
-   Redis* (Upstash). Vercel injects `KV_REST_API_URL` and
-   `KV_REST_API_TOKEN` automatically. If you already have an Upstash database,
-   paste its REST URL and token instead.
-3. **Redeploy** so the function picks up the variables.
-4. **Open your deployment URL.** You get a status page.
-5. **Click Register Webhook**, then **Verify Telegram**, then **Check Storage**.
-   All three should turn green.
-6. **Point PocketClaw at it** by building the app with
-   `--dart-define=POCKETCLAW_ONBOARDING_BASE_URL=https://your-deployment`.
+Two stages, because a database can only be attached to a project that exists.
+
+### 1. Deploy
+
+Click the button. Vercel forks this repository into your account and asks for
+four values:
+
+| Variable | Where it comes from |
+| --- | --- |
+| `TELEGRAM_MANAGER_BOT_TOKEN` | BotFather — see below |
+| `TELEGRAM_MANAGER_BOT_USERNAME` | your manager bot's `@username`, without the `@` |
+| `TELEGRAM_WEBHOOK_SECRET` | `openssl rand -hex 32` |
+| `PAIRING_SECRET` | `openssl rand -hex 32`, a **different** one |
+
+The deployment will succeed and the status page will load. It will say
+**Pairing Storage: NOT CONFIGURED**, which is correct — you have not connected
+a database yet. Pairing requests deliberately fail until you do.
+
+### 2. Connect Redis
+
+In your new Vercel project:
+
+**Storage → Marketplace → Upstash for Redis → create or select a database →
+connect it to this project → Redeploy.**
+
+The integration injects the credentials itself; there is nothing to copy by
+hand. After the redeploy, the status page reports the storage backend.
+
+### 3. Verify
+
+Open your deployment URL and click, in order:
+
+1. **Register Webhook** — the server calls Telegram's `setWebhook`.
+2. **Verify Telegram** — the server calls `getMe` and checks
+   `can_manage_bots`. This is the only step that actually proves Bot
+   Management Mode is on.
+3. **Check Storage** — confirms the database is reachable.
+4. **Create Test Pairing** — writes and reads back a real pairing, then
+   deletes it.
+
+All four must report success.
+
+### 4. Point PocketClaw at it
+
+Build the app with
+`--dart-define=POCKETCLAW_ONBOARDING_BASE_URL=https://your-deployment`.
 
 The deployed repository may be public — nothing in this repository is secret,
 and every credential lives in Vercel's environment, not in the code.
@@ -109,26 +143,61 @@ Set the privacy policy URL after you deploy, once you know your domain.
 
 ## Environment Variables
 
-| Variable | Secret | Required | Description |
-| --- | --- | --- | --- |
-| `TELEGRAM_MANAGER_BOT_TOKEN` | **yes** | yes | Manager bot token from BotFather. |
-| `TELEGRAM_MANAGER_BOT_USERNAME` | no | yes | The manager's `@username`, without the `@`. Public — it appears in every link. |
-| `TELEGRAM_WEBHOOK_SECRET` | **yes** | yes | A long random string you invent. Telegram echoes it on every delivery, which is how forged webhooks are rejected. |
-| `PAIRING_SECRET` | **yes** | yes | A long random string you invent. Keys the stored poll-token verifier. |
-| `KV_REST_API_URL` | no | yes | Redis REST endpoint. Provisioned automatically by Vercel's Redis integration. |
-| `KV_REST_API_TOKEN` | **yes** | yes | Redis REST token. |
-| `PUBLIC_BASE_URL` | no | no | Override the public origin. Only needed behind a custom domain or proxy. |
-| `PAIRING_TTL_SECONDS` | no | no | Pairing lifetime. Default `600`. |
-| `ALLOW_MEMORY_STORE` | no | no | Permit the in-memory store. **Local development only.** |
+### Set at deploy time
 
-`UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are accepted as
-aliases for the two `KV_REST_API_*` variables.
+| Variable | Secret | Description |
+| --- | --- | --- |
+| `TELEGRAM_MANAGER_BOT_TOKEN` | **yes** | Manager bot token from BotFather. |
+| `TELEGRAM_MANAGER_BOT_USERNAME` | no | The manager's `@username`, without the `@`. Public — it appears in every link. |
+| `TELEGRAM_WEBHOOK_SECRET` | **yes** | A long random string you invent. Telegram echoes it on every delivery, which is how forged webhooks are rejected. |
+| `PAIRING_SECRET` | **yes** | A long random string you invent. Keys the stored poll-token verifier. |
 
-Generate the two random strings with:
+Generate the two random strings with `openssl rand -hex 32`. The service
+refuses anything under 16 characters.
 
-```bash
-openssl rand -hex 32
-```
+### Injected by the Redis integration
+
+Do **not** set these by hand after a Marketplace install — the integration
+manages them, and a manually-entered copy will go stale when credentials
+rotate.
+
+| Variable | Provided by |
+| --- | --- |
+| `UPSTASH_REDIS_REST_URL` | Upstash for Redis (Marketplace) |
+| `UPSTASH_REDIS_REST_TOKEN` | Upstash for Redis (Marketplace) |
+
+The service also accepts these older names, in this order of preference:
+
+| Alias | Origin |
+| --- | --- |
+| `KV_REST_API_URL` / `KV_REST_API_TOKEN` | legacy Vercel KV, retired in December 2024; existing stores were migrated to Upstash and may still carry these |
+| `REDIS_REST_URL` / `REDIS_REST_TOKEN` | generic, for a self-hosted or other Redis REST endpoint |
+
+Whichever pair is present is used; you never need more than one. Note that a
+`REDIS_URL` connection string is **not** enough on its own — this service
+speaks the HTTP REST protocol, not the Redis wire protocol, because a
+serverless function has nowhere to keep a connection pool.
+
+### Optional
+
+| Variable | Description |
+| --- | --- |
+| `PUBLIC_BASE_URL` | Override the public origin used to build the webhook URL. Only needed behind a custom domain or proxy. |
+| `PAIRING_TTL_SECONDS` | Pairing lifetime. Default `600`. |
+| `ALLOW_MEMORY_STORE` | Permit the in-memory store. **Local development only** — see below. |
+
+### There is no silent fallback
+
+If no Redis credentials are present and `ALLOW_MEMORY_STORE` is not set, the
+service does **not** quietly use memory. Every pairing request fails with
+`503 storage_not_configured`, and the status page reports
+**Pairing Storage: NOT CONFIGURED**.
+
+That is deliberate. An in-memory fallback would make a storage-less deployment
+look healthy: creating a pairing would succeed, the app would show a QR code,
+and the flow would then never complete — because the Telegram webhook arrives
+at a different function instance that has never heard of that pairing. That
+failure is invisible when it is caused and baffling ten minutes later.
 
 ## Security
 
@@ -288,7 +357,8 @@ On Vercel, the request that creates a pairing, the Telegram webhook that
 completes it, and the request that collects the token can each execute in a
 **different function instance**. A Go map would work in development and fail in
 production in a way that looks intermittent. So state lives in Redis, keyed by
-pairing, with the TTL doing the expiry.
+pairing, with the TTL doing the expiry — reached over its HTTP REST API, since
+a serverless function has nowhere to keep a connection pool.
 
 Two operations must be atomic, and both are done server-side by Redis rather
 than in application code:

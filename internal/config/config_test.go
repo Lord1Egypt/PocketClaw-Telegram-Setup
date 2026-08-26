@@ -20,8 +20,8 @@ func validEnv() map[string]string {
 		"TELEGRAM_MANAGER_BOT_USERNAME": "PocketClawSetupBot",
 		"TELEGRAM_WEBHOOK_SECRET":       "webhook-secret-long-enough",
 		"PAIRING_SECRET":                "pairing-secret-long-enough",
-		"KV_REST_API_URL":               "https://storage.example.upstash.io",
-		"KV_REST_API_TOKEN":             "storage-token",
+		"UPSTASH_REDIS_REST_URL":        "https://storage.example.upstash.io",
+		"UPSTASH_REDIS_REST_TOKEN":      "storage-token",
 	}
 }
 
@@ -52,16 +52,46 @@ func TestLoadStripsTheAtPrefixFromTheUsername(t *testing.T) {
 	}
 }
 
-func TestLoadAcceptsUpstashVariableNames(t *testing.T) {
+// A project migrated from the retired Vercel KV still carries the old names.
+func TestLoadAcceptsLegacyVercelKVNames(t *testing.T) {
 	env := validEnv()
-	delete(env, "KV_REST_API_URL")
-	delete(env, "KV_REST_API_TOKEN")
-	env["UPSTASH_REDIS_REST_URL"] = "https://storage.example.upstash.io"
-	env["UPSTASH_REDIS_REST_TOKEN"] = "storage-token"
+	delete(env, "UPSTASH_REDIS_REST_URL")
+	delete(env, "UPSTASH_REDIS_REST_TOKEN")
+	env["UPSTASH_REDIS_REST_URL"] = ""
+	env["UPSTASH_REDIS_REST_TOKEN"] = ""
+	env["KV_REST_API_URL"] = "https://storage.example.upstash.io"
+	env["KV_REST_API_TOKEN"] = "storage-token"
 	setEnv(t, env)
 	cfg, problems := Load()
 	if !cfg.StorageConfigured() {
-		t.Fatalf("Upstash variable names were not recognised: %v", problems)
+		t.Fatalf("legacy Vercel KV names were not recognised: %v", problems)
+	}
+}
+
+func TestLoadAcceptsGenericRedisRestNames(t *testing.T) {
+	env := validEnv()
+	env["UPSTASH_REDIS_REST_URL"] = ""
+	env["UPSTASH_REDIS_REST_TOKEN"] = ""
+	env["REDIS_REST_URL"] = "https://redis.example.org"
+	env["REDIS_REST_TOKEN"] = "storage-token"
+	setEnv(t, env)
+	cfg, problems := Load()
+	if !cfg.StorageConfigured() {
+		t.Fatalf("generic REDIS_REST_* names were not recognised: %v", problems)
+	}
+	if cfg.RedisURL != "https://redis.example.org" {
+		t.Fatalf("RedisURL = %q", cfg.RedisURL)
+	}
+}
+
+func TestUpstashNamesWinOverLegacyNames(t *testing.T) {
+	env := validEnv()
+	env["KV_REST_API_URL"] = "https://legacy.example.org"
+	env["KV_REST_API_TOKEN"] = "legacy-token"
+	setEnv(t, env)
+	cfg, _ := Load()
+	if cfg.RedisURL != "https://storage.example.upstash.io" {
+		t.Fatalf("the legacy name won over the current one: %q", cfg.RedisURL)
 	}
 }
 
@@ -72,10 +102,10 @@ func TestLoadReportsEveryMissingSecret(t *testing.T) {
 		"TELEGRAM_MANAGER_BOT_USERNAME": "",
 		"TELEGRAM_WEBHOOK_SECRET":       "",
 		"PAIRING_SECRET":                "",
-		"KV_REST_API_URL":               "",
-		"KV_REST_API_TOKEN":             "",
 		"UPSTASH_REDIS_REST_URL":        "",
 		"UPSTASH_REDIS_REST_TOKEN":      "",
+		"KV_REST_API_URL":               "",
+		"KV_REST_API_TOKEN":             "",
 		"REDIS_REST_URL":                "",
 		"REDIS_REST_TOKEN":              "",
 	})
@@ -86,7 +116,7 @@ func TestLoadReportsEveryMissingSecret(t *testing.T) {
 		"TELEGRAM_MANAGER_BOT_USERNAME",
 		"TELEGRAM_WEBHOOK_SECRET",
 		"PAIRING_SECRET",
-		"shared storage is not configured",
+		"Pairing storage is NOT CONFIGURED",
 	} {
 		if !strings.Contains(joined, expected) {
 			t.Fatalf("problems do not mention %q:\n%s", expected, joined)
@@ -108,10 +138,8 @@ func TestLoadRejectsShortSecrets(t *testing.T) {
 
 func TestLoadWarnsLoudlyAboutTheMemoryStore(t *testing.T) {
 	env := validEnv()
-	delete(env, "KV_REST_API_URL")
-	delete(env, "KV_REST_API_TOKEN")
-	env["KV_REST_API_URL"] = ""
-	env["KV_REST_API_TOKEN"] = ""
+	env["UPSTASH_REDIS_REST_URL"] = ""
+	env["UPSTASH_REDIS_REST_TOKEN"] = ""
 	env["ALLOW_MEMORY_STORE"] = "true"
 	setEnv(t, env)
 	_, problems := Load()
