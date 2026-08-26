@@ -97,7 +97,7 @@ func Load() (Config, []string) {
 			problems = append(problems,
 				"Pairing storage is NOT CONFIGURED. Connect a Redis database: "+
 					"Vercel project → Storage → Marketplace → Upstash for Redis → connect it to "+
-					"this project, then redeploy. The integration injects "+
+					"this project, then Redeploy. The integration injects "+
 					"UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN "+
 					"(KV_REST_API_URL and KV_REST_API_TOKEN are also accepted). "+
 					"Pairing requests fail until this is done.")

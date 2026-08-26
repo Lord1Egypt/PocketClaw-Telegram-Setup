@@ -1,7 +1,14 @@
-// Command server runs the onboarding service locally.
+// Command server is the whole service.
 //
-// Production runs on Vercel through api/index.go; this exists so the service
-// can be exercised on a laptop with the same wiring.
+// Vercel's Go framework preset detects a root go.mod plus one of main.go,
+// cmd/api/main.go, or cmd/server/main.go, builds it, and runs it listening on
+// PORT. The same binary runs locally, so there is no separate production
+// entrypoint that could drift from the one that gets tested.
+//
+// Deliberately not an api/*.go serverless function: a repository that offers
+// both an api/ function and a detectable server entrypoint satisfies two
+// Vercel build modes at once, the framework preset wins, and any `functions`
+// config pointing into api/ then matches nothing and fails the build.
 package main
 
 import (

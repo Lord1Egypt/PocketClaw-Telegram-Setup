@@ -1,0 +1,59 @@
+name: CI
+
+# Runs on every push and pull request. The deployment-configuration tests in
+# internal/deployconfig are the reason this workflow exists: a Vercel build
+# mistake is invisible locally and otherwise only surfaces in a deploy log,
+# after an operator has already been asked for their secrets.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          check-latest: true
+
+      - name: Verify formatting
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "These files are not gofmt-clean:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test -race ./...
+
+      # Build exactly the way Vercel's Go framework preset does, so a failure
+      # there shows up here instead of in a deployment.
+      - name: Build for the deployment target
+        env:
+          GOOS: linux
+          GOARCH: amd64
+        run: go build -ldflags '-s -w' -o /tmp/server ./cmd/server
+
+      # A zero-dependency service should stay that way. A stray `go get` would
+      # create a go.sum, which is worth noticing deliberately.
+      - name: Confirm the dependency surface has not changed
+        run: |
+          if [ -f go.sum ]; then
+            echo "go.sum now exists: this service is meant to be standard library only."
+            echo "If a dependency is genuinely needed, remove this check in the same commit."
+            exit 1
+          fi

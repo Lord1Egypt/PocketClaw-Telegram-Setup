@@ -1,8 +1,8 @@
 // Package app wires the service together from the environment.
 //
-// Both entrypoints use it: the Vercel function in api/ and the local server in
-// cmd/server. Keeping the wiring in one place is what stops the two from
-// drifting into different behaviour.
+// cmd/server uses it, and that is the only entrypoint: the same binary serves
+// locally and on Vercel, so there is nothing for a second entrypoint to drift
+// from.
 package app
 
 import (

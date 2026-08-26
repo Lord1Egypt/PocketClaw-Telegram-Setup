@@ -260,6 +260,15 @@ go build ./...
 Every test drives a fake Telegram and a fake Redis. Nothing requires a real
 manager bot or a production credential.
 
+`internal/deployconfig` holds tests about the repository itself rather than
+about the code: that exactly one Vercel Go build mode is satisfied, that
+`vercel.json` names no path that does not exist, that the entrypoint reads
+`PORT`, that the Deploy button asks for nothing an operator cannot supply
+before the project exists, and that no `.env` is committed. They exist because
+a deployment mistake compiles cleanly and passes every other test — it only
+appears in a Vercel build log, after the operator has already handed over their
+secrets. CI runs them on every push.
+
 To run the server:
 
 ```bash
@@ -336,8 +345,7 @@ once**, then destroys the session.
 ## Architecture
 
 ```
-api/index.go          Vercel entrypoint; vercel.json rewrites every path here
-cmd/server/main.go    the same wiring, as a local server
+cmd/server/main.go    the only entrypoint; the same binary runs locally and on Vercel
 internal/app          builds the stack from the environment
 internal/config       environment loading and validation
 internal/httpapi      routing, the pairing API, the webhook, the operator pages
@@ -350,6 +358,20 @@ internal/deeplink     the t.me/newbot link
 
 **Zero external dependencies.** The whole service is standard library. There is
 no `go.sum` because there is nothing to sum.
+
+### How it is built on Vercel
+
+`vercel.json` sets `"framework": "go"`. Vercel's Go framework preset finds the
+root `go.mod` and `cmd/server/main.go`, builds it, and runs the binary listening
+on `PORT`. Routing is `internal/httpapi`'s own `http.ServeMux`, so there are no
+rewrites to keep in sync.
+
+There is deliberately **no `api/*.go` serverless function**. A repository that
+offers both an `api/` function and a detectable server entrypoint satisfies two
+Vercel build modes at once; the framework preset wins, `api/` is never scanned,
+and a `functions` block pointing into it matches nothing and fails the build
+with *"the pattern ... doesn't match any Serverless Functions"*. One mode, one
+entrypoint.
 
 ### Why shared storage, not memory
 
